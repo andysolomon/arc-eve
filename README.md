@@ -62,8 +62,16 @@ See [eve getting started](https://eve.dev/docs/getting-started),
 
 ## Status
 
-Pre-scaffold. Open GitHub issues track the host-cwd spike and the design
-decisions that must land before any parent rewrite.
+Pre-scaffold. Open issues track the host-cwd spike and the design decisions
+that must land before any parent rewrite:
+
+1. [Spike: invoke the runner from Eve on a real checkout](https://github.com/andysolomon/arc-eve/issues/1)
+2. [Decide parent workspace: host checkout vs Eve sandbox](https://github.com/andysolomon/arc-eve/issues/2)
+3. [Port ARC authorization gates to Eve approvals](https://github.com/andysolomon/arc-eve/issues/3)
+4. [Operator-only Provider CLI login and status](https://github.com/andysolomon/arc-eve/issues/4)
+5. [Choose the operator surface](https://github.com/andysolomon/arc-eve/issues/5)
+6. [Keep runner-routing-v4; do not replace workers with Eve subagents](https://github.com/andysolomon/arc-eve/issues/6)
+7. [Preserve session-runs or replace the monitor event source](https://github.com/andysolomon/arc-eve/issues/7)
 
 ```text
 operator
