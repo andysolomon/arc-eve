@@ -1,0 +1,14 @@
+auth-parity - progress
+Repository: arc-eve (.)
+Items: 8 (3 groups, 5 leaves)
+Checkpoints: planned=3 ready=0 completed=5 blocked=0 cancelled=0 needs-replan=0
+Legend: [ ] planned  [>] ready  [x] completed  [!] blocked  [-] cancelled  [?] needs-replan
+
+[ ] 1.0 - Parent provider foundation (planned)
+    [x] 1.1 - #9 Configure and authenticate the Eve parent provider (completed) [evidence: https://github.com/andysolomon/arc-eve/issues/9]
+[ ] 2.0 - Worker identity and operator auth surface (planned)
+    [x] 2.1 - #12 Share ARC Pi worker binary resolution with ARC runner (completed) [evidence: https://github.com/andysolomon/arc-eve/issues/12]
+    [x] 2.2 - #10 Provide an operator-only worker login/status surface in Eve (completed) [evidence: https://github.com/andysolomon/arc-eve/issues/10]
+    [x] 2.3 - #11 Match ARC Pi provider login lifecycle and secrecy guarantees (completed) [evidence: https://github.com/andysolomon/arc-eve/issues/11]
+[ ] 3.0 - End-to-end acceptance (planned)
+    [x] 3.1 - #13 Add an end-to-end provider-backed Eve acceptance test (completed) [evidence: https://github.com/andysolomon/arc-eve/issues/13]

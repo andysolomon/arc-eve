@@ -1,0 +1,16 @@
+%% source: ".arc/workflows/auth-parity/workflow.yaml"
+%% notice: hand-authored parent-local view following the eve-version shape;
+%% edit the workflow source, not this file
+
+gantt
+    dateFormat YYYY-MM-DD
+    axisFormat %Y-%m-%d
+    title auth-parity
+    section Parent provider foundation
+    9 Configure and authenticate the Eve parent provider :t_1_1, 2026-09-14, 1d
+    section Worker identity and operator auth surface
+    12 Share ARC Pi worker binary resolution with ARC runner :t_2_1, after t_1_1, 1d
+    10 Operator-only worker login status surface in Eve :t_2_2, after t_2_1, 1d
+    11 Login lifecycle and secrecy guarantees :t_2_3, after t_2_1, 1d
+    section End-to-end acceptance
+    13 End-to-end provider-backed Eve acceptance test :t_3_1, after t_1_1 t_2_1 t_2_2 t_2_3, 1d

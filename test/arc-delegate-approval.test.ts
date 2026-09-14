@@ -57,3 +57,43 @@ test("an already-cancelled call is rejected without runner discovery", async () 
   assert.equal(result.status, "blocked");
   assert.match(result.risks.join(" "), /runner was not started/);
 });
+
+test("explore against the e2e harness fake checkout returns the bounded redacted result", async () => {
+  const { mkdtemp, writeFile } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { prepareFakeCheckout, captureSessionRun } = await import("../scripts/e2e-acceptance.ts");
+  const source = await mkdtemp(join(tmpdir(), "arc-delegate-e2e-source-"));
+  await writeFile(join(source, "README.md"), "# fake\n");
+  const notes = ["sk-test-1234567890abcdef", "https://authenticator.cursor.sh/device?code=ABCD", "user: foo"];
+  const fixture = await prepareFakeCheckout({ sourceDir: source, runnerNotes: notes });
+  const saved = { ARC_PI_HOME: process.env.ARC_PI_HOME, ARC_ORCHESTRATOR_BIN: process.env.ARC_ORCHESTRATOR_BIN };
+  process.env.ARC_PI_HOME = fixture.arcPiHome;
+  process.env.ARC_ORCHESTRATOR_BIN = fixture.runner;
+  try {
+    const result: any = await (tool as any).execute({ ...base, phase: "explore", cwd: fixture.checkout }, {
+      abortSignal: new AbortController().signal,
+      session: { id: "eve-session" },
+    });
+    const runId: string = result.run_id;
+    assert.match(runId, /^run-/);
+    assert.deepEqual(Object.keys(result), ["run_id", "status", "summary", "changes", "verification", "risks", "next_actions"]);
+    const { compactResult } = await import("../agent/lib/arc-runtime.ts");
+    const final = { status: "completed", summary: "fake explore finished", changes: [], verification: notes, risks: notes, next_actions: [] };
+    assert.deepEqual(result, compactResult(`${notes.join("\n")}\n${JSON.stringify(final)}\n`, "completed", { run_id: runId }));
+    assert.equal(result.status, "completed");
+    assert(result.summary.length <= 2000);
+    const text = JSON.stringify(result);
+    for (const marker of notes) assert.equal(text.includes(marker), false, marker);
+    const record = await captureSessionRun(fixture.arcPiHome, "eve-session", { cwd: fixture.checkout }) as any;
+    assert.equal(record.phase, "explore");
+    assert.equal(record.mode, "analyze");
+    assert.equal(record.status, "completed");
+    assert.equal(record.exitCode, 0);
+  } finally {
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});

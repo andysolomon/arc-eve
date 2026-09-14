@@ -55,18 +55,41 @@ test("providers receive exact argv and the canonical selected binary environment
   };
 
   assert.equal(await providerStatus("cursor-agent", env, dir), "authenticated");
-  assert.deepEqual(await providerLogin("cursor-agent", env, dir), { status: "completed" });
+  assert.deepEqual(await providerLogin("cursor-agent", env, dir), { status: "completed", postLoginStatus: "authenticated" });
   assert.equal(await providerStatus("claude-code", env, dir), "authenticated");
-  assert.deepEqual(await providerLogin("claude-code", env, dir), { status: "completed" });
+  assert.deepEqual(await providerLogin("claude-code", env, dir), { status: "completed", postLoginStatus: "authenticated" });
 
   const recorded = (await readFile(calls, "utf8")).trim().split("\n").map((line) => JSON.parse(line));
   assert.deepEqual(recorded.map(({ args }) => args), [
     ["status", "--format", "json"],
     ["login"],
+    ["status", "--format", "json"],
     ["auth", "status", "--json"],
     ["auth", "login"],
+    ["auth", "status", "--json"],
   ]);
   assert.ok(recorded.every(({ cursor, claude }) => cursor === fake && claude === fake));
+});
+
+test("provider status discovers PATH-only binaries and treats non-executables as missing", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "arc-auth-path-"));
+  const fake = join(dir, "cursor-agent");
+  await writeFile(fake, `#!${process.execPath}\nprocess.stdout.write(JSON.stringify({authenticated:true}));\n`, { mode: 0o755 });
+  await chmod(fake, 0o755);
+  const {
+    ARC_ORCHESTRATOR_CURSOR_BIN: _cursor,
+    CURSOR_AGENT_BIN: _cursorAlias,
+    ARC_ORCHESTRATOR_CLAUDE_BIN: _claude,
+    CLAUDE_CODE_BIN: _claudeAlias,
+    ...rest
+  } = process.env;
+  assert.equal(await providerStatus("cursor-agent", { ...rest, PATH: dir }, dir), "authenticated");
+
+  const noexecDir = await mkdtemp(join(tmpdir(), "arc-auth-noexec-"));
+  const noexec = join(noexecDir, "cursor-agent");
+  await writeFile(noexec, `#!${process.execPath}\nprocess.stdout.write(JSON.stringify({authenticated:true}));\n`, { mode: 0o644 });
+  await chmod(noexec, 0o644);
+  assert.equal(await providerStatus("cursor-agent", { ...rest, PATH: noexecDir }, noexecDir), "missing");
 });
 
 test("provider timeout escalates termination and returns only generic states", async () => {
@@ -79,7 +102,7 @@ test("provider timeout escalates termination and returns only generic states", a
   const env = { ...process.env, ARC_ORCHESTRATOR_CURSOR_BIN: fake, PID_FILE: pidFile, TERM_FILE: termFile };
   const timing = { timeoutMs: 500, killGraceMs: 30 };
   assert.equal(await providerStatus("cursor-agent", env, dir, timing), "unknown");
-  assert.deepEqual(await providerLogin("cursor-agent", env, dir, timing), { status: "blocked" });
+  assert.deepEqual(await providerLogin("cursor-agent", env, dir, timing), { status: "blocked", postLoginStatus: "unknown" });
   assert.match(await readFile(termFile, "utf8"), /term/);
   const pid = Number(await readFile(pidFile, "utf8"));
   assert.throws(() => process.kill(pid, 0), (error: NodeJS.ErrnoException) => error.code === "ESRCH");

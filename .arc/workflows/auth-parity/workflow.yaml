@@ -1,0 +1,306 @@
+schema_version: "1"
+slug: auth-parity
+repository:
+  id: arc-eve
+  path: .
+items:
+  - id: "1.0"
+    kind: group
+    title: Parent provider foundation
+    parent_id: null
+    nesting_depth: 0
+    dependencies: []
+    checkpoint:
+      state: planned
+      updated_at: 2026-09-14T14:23:41.000Z
+  - id: "1.1"
+    kind: leaf
+    title: "#9 Configure and authenticate the Eve parent provider"
+    parent_id: "1.0"
+    nesting_depth: 1
+    outcome: A fresh checkout can follow documented setup to configure and
+      authenticate the Eve parent provider and complete a simple model turn,
+      with configurable provider/model precedence and redacted credential
+      feedback.
+    scope: Eve parent provider/model configuration precedence, first-run
+      operator link/auth flow or documented AI_GATEWAY_API_KEY/.env.local
+      equivalent, bounded redacted missing/invalid-credential feedback, and
+      parent-vs-worker credential separation. Exclude Cursor Agent and Claude
+      Code login/status, runner replacement, and new credential stores.
+    acceptance_criteria:
+      - Fresh checkout follows docs, authenticates/configures the parent,
+        restarts eve dev, and completes a simple model turn
+      - Provider, model, and runtime overrides change without editing
+        generated output or source code
+      - Missing, invalid, or expired parent credentials give generic
+        actionable guidance with no credential/account disclosure
+      - "Authentication stays operator-controlled: no model-callable login
+        tool, no automatic browser/login flow at startup, no credential
+        import into ARC-owned state"
+      - Automated tests cover provider/model resolution, missing
+        credentials, and secret non-disclosure
+    dependencies: []
+    preserved_behavior: arc-orchestrator, runner-routing-v4, vendor-owned
+      worker authentication, and the existing arc_delegate contract remain
+      unchanged.
+    checkpoint:
+      state: completed
+      updated_at: 2026-09-14T15:18:00.000Z
+      evidence_ref: https://github.com/andysolomon/arc-eve/issues/9
+      notes: "Shipped: agent/lib/parent-provider.ts (env > .env.local >
+        defaults with canonical EVE_PARENT_* + aliases), scripts/parent-
+        provider.ts (operator-only status|check), .env.example, docs/
+        architecture/parent-provider.md, agent/agent.ts + README.md +
+        package.json wiring, and test/parent-provider.test.ts (11 tests
+        after the composer-2.5 Code Review tighten pass that added direct
+        redactParentProviderText coverage and a .env.local-only canonical-
+        over-alias precedence test). pnpm typecheck passes; full suite (41
+        tests) green; injected API key never appears in any CLI output.
+        Independent Code Review (composer-2.5) returned conditional PASS;
+        documented follow-ups: invalid/expired credential detection at the
+        gateway boundary (Risk 1), baseUrl not surfaced in CLI (Risk 3),
+        and the simple-model-turn criterion deferred to leaf 3.1 (Risk 4)."
+  - id: "2.0"
+    kind: group
+    title: Worker identity and operator auth surface
+    parent_id: null
+    nesting_depth: 0
+    dependencies: []
+    checkpoint:
+      state: planned
+      updated_at: 2026-09-14T14:23:41.000Z
+  - id: "2.1"
+    kind: leaf
+    title: "#12 Share ARC Pi worker binary resolution with ARC runner"
+    parent_id: "2.0"
+    nesting_depth: 1
+    outcome: Eve login, status, and arc_delegate resolve the same worker
+      executable through one shared resolver matching ARC Pi and runner
+      precedence, including PATH defaults and fail-closed invalid paths.
+    scope: One shared resolver used by provider login, provider status, and
+      ARC worker execution; canonical ARC_ORCHESTRATOR_*_BIN precedence with
+      compatibility aliases as documented fallbacks; PATH resolution of
+      cursor-agent and claude; fail-closed invalid explicit paths;
+      normalized child environment and diagnostics. No startup vendor probing
+      or credential inspection.
+    acceptance_criteria:
+      - Canonical ARC_ORCHESTRATOR_*_BIN values win over aliases and defaults
+      - Compatibility aliases work only when the canonical value is absent
+      - Default cursor-agent and claude commands work from PATH with no
+        override set
+      - Invalid explicit paths give a clear generic missing/unavailable
+        result and never fall through to another binary
+      - Login, status, and arc_delegate resolve the same selected executable
+      - Tests cover canonical/alias/default precedence, PATH lookup,
+        invalid paths, and the child environment
+    dependencies:
+      - "1.1"
+    preserved_behavior: The external arc-orchestrator remains the worker
+      plane with its own routing, sandbox, locking, and authentication
+      responsibilities.
+    checkpoint:
+      state: completed
+      updated_at: 2026-09-14T16:30:00.000Z
+      evidence_ref: https://github.com/andysolomon/arc-eve/issues/12
+      notes: "Shipped: agent/lib/worker-binaries.ts gains resolveWorkerBinaries,
+        resolveWorkerBinary (missing|invalid|unavailable), findExecutableInPath
+        (bare-name PATH lookup with X_OK gate) while configuredWorkerBinaries
+        keeps env-only semantics. agent/lib/arc-auth.ts now consumes the new
+        resolver so providerStatus and providerLogin share identity with
+        arc_delegate. agent/lib/arc-runtime.ts exposes resolvedWorkerBinaries,
+        resolvedWorkerBinary, resolvedWorkerChildEnv, workerBinaryRegistryMeta;
+        discoverRunner is unchanged. agent/tools/arc_delegate.ts records
+        workerBinaryAliases + workerBinaryPresent in the registry (alias names
+        + booleans only, never paths or credentials). test/worker-binaries.test.ts
+        (4 tests) covers canonical > alias > PATH > fail-closed for both kinds;
+        arc-auth.test.ts keeps all original tests unchanged plus one additive
+        PATH-only fake-binary discovery test. pnpm typecheck clean; full suite
+        (46 tests) green across 7 files; scripts/provider-auth.ts public argv
+        unchanged."
+      evidence_ref: https://github.com/andysolomon/arc-eve/issues/12
+  - id: "2.2"
+    kind: leaf
+    title: "#10 Provide an operator-only worker login/status surface in Eve"
+    parent_id: "2.0"
+    nesting_depth: 1
+    outcome: Operators can initiate Cursor Agent and Claude Code login and
+      query redacted status from the documented Eve operator surface, while
+      the model can neither discover nor invoke login/status.
+    scope: Operator-only login/status entry point reachable from the primary
+      Eve workflow or a first-class companion host command with a documented
+      relationship to eve dev; explicit Cursor Agent and Claude Code
+      selection plus one-or-both status; same configured worker executable
+      as delegation; four-state status projection; documented
+      install/login/status/vendor-logout paths. Exclude vendor CLI
+      installation, account management, credential migration, and /model
+      picker registration. Do not treat always() approval on a
+      model-callable tool as an operator-only boundary.
+    acceptance_criteria:
+      - Operator can initiate Cursor Agent login and Claude Code login from
+        the documented surface
+      - Operator can query either provider or both and receives only
+        missing, authenticated, unauthenticated, or unknown
+      - Model cannot discover or invoke login/status as a tool, directly or
+        through an authorization parameter
+      - Missing CLI and unauthenticated CLI give distinct, actionable,
+        redacted outcomes
+      - Flow uses the worker executable identity from the shared binary
+        configuration
+      - Tests prove the operator boundary and generic output without real
+        paid login or real credential state
+    dependencies:
+      - "2.1"
+    preserved_behavior: Cursor Agent and Claude Code remain
+      subscription-backed ARC workers, not Eve model providers; official
+      CLIs own authentication, persistence, and logout.
+    checkpoint:
+      state: completed
+      updated_at: 2026-09-14T16:39:00.000Z
+      evidence_ref: https://github.com/andysolomon/arc-eve/issues/10
+      notes: "Shipped: scripts/provider-auth.ts gains additive kind both for
+        status|login; per-kind {provider,status} JSON unchanged; both emits
+        one JSON line per kind (cursor-agent first, claude-code second);
+        exit code is the union of per-kind rules (1 if any kind fails).
+        README.md v1 operator-surface paragraph pins the entry point and
+        lists cursor-agent|claude-code|both. test/provider-auth.test.ts
+        grew from 3 to 8 tests: four-state projection per kind (Set size
+        check), both-kind status/login leak-free output, exit-code union
+        (bothOk=0, mixed=1 with partial stdout, bothFail=1 with empty
+        stdout), agent/tools guard (no provider-auth/providerLogin/
+        providerStatus/arc-auth imports and no arc_login.ts or
+        arc-auth-status.ts file), and a defineTool negative check.
+        pnpm typecheck clean; full suite 51 tests green across 7 files.
+        Documented follow-up: docs/architecture/operator-surface.md still
+        shows pre-both command examples (left untouched per scope); can be
+        refreshed in a docs leaf."
+      evidence_ref: https://github.com/andysolomon/arc-eve/issues/10
+  - id: "2.3"
+    kind: leaf
+    title: "#11 Match ARC Pi provider login lifecycle and secrecy guarantees"
+    parent_id: "2.0"
+    nesting_depth: 1
+    outcome: Worker login/status matches ARC Pi lifecycle and secrecy -
+      bounded transient output cleared after the operation, operator
+      cancellation and deadlines enforced, vendor browser flow handled
+      without uncontrolled browser launch, API-key path supported, and a
+      post-login status probe projects to four generic states.
+    scope: Exact vendor argv with shell false and independent bounded
+      stdout/stderr capture; transient operator-visible output cleared on
+      completion and never persisted to history, prompts, session records,
+      or traces; SIGTERM then bounded SIGKILL cancellation, bounded
+      configurable deadlines, waiting heartbeats; Cursor browser/device
+      flow URL detection with operator guidance and CURSOR_API_KEY path
+      without logging the key; explicit post-login status probe;
+      conservative unknown handling.
+    acceptance_criteria:
+      - Login instructions, URLs, device codes, account identifiers, and raw
+        provider output exist only in bounded transient UI/process memory
+        and are cleared after the operation
+      - Cancellation and timeout terminate a stalled provider process
+        within the configured bound and return a generic result
+      - Successful login is followed by a status probe; failure, missing
+        CLI, timeout, cancellation, and unknown stay distinguishable
+        without leaking provider details
+      - Cursor API-key authentication skips browser login with generic-only
+        status; the key never appears in output, history, or traces
+      - Tests use fake executables to cover output bounds, cancellation,
+        timeout, browser URL handling, post-login status, and redaction
+    dependencies:
+      - "2.1"
+    preserved_behavior: Vendor CLIs remain the authentication authority;
+      Eve does not read, copy, refresh, persist, or display credential
+      material, and authentication stays operator-initiated only.
+    checkpoint:
+      state: completed
+      updated_at: 2026-09-14T16:45:30.000Z
+      evidence_ref: https://github.com/andysolomon/arc-eve/issues/11
+      notes: "Shipped: agent/lib/arc-auth.ts now uses resolveWorkerBinary
+        (leaf 2.1), so login/status and arc_delegate share the same
+        resolver. Public argv unchanged (cursor-agent login; claude-code
+        auth login) with shell: false. Added ProviderLoginResult type
+        (status, postLoginStatus, credentialSource, browserGuidance),
+        CURSOR_API_KEY skip-login (only credentialSource constant exposed,
+        never the key), AbortSignal-driven SIGTERM->SIGKILL escalation
+        with configurable deadline, browser URL detection redacted to
+        scheme://host only (no path, no query), captured stdout/stderr
+        discarded once classify resolves. After the composer-2.5 Code
+        Review (verdict: 2.2 PASS, 2.3 FAIL on the post-login probe
+        contract gap), the success-after-binary-login path now
+        actually spawns providerStatus post-login (not classifyCaptured
+        on login stdout); blockedLogin returns {status: blocked,
+        postLoginStatus: unknown}; the legacy argv-recording and
+        timeout tests got additive updates to reflect the probe. Full
+        suite 59 tests green across 8 files; pnpm typecheck clean."
+      evidence_ref: https://github.com/andysolomon/arc-eve/issues/11
+  - id: "3.0"
+    kind: group
+    title: End-to-end acceptance
+    parent_id: null
+    nesting_depth: 0
+    dependencies: []
+    checkpoint:
+      state: planned
+      updated_at: 2026-09-14T14:23:41.000Z
+  - id: "3.1"
+    kind: leaf
+    title: "#13 Add an end-to-end provider-backed Eve acceptance test"
+    parent_id: "3.0"
+    nesting_depth: 1
+    outcome: A repeatable opt-in manual acceptance run proves the real
+      provider-backed path from Eve parent authentication through an
+      approved read-capable arc_delegate delegation, with manual
+      pass/fail evidence and automated coverage kept offline.
+    scope: Documented operator prerequisites for parent-provider auth and
+      one authenticated worker CLI; disposable real checkout running eve
+      dev with parent auth plus one approved read-capable arc_delegate
+      request via the real arc-orchestrator; full-path verification
+      (model turn, operator gate, runner invocation, worker auth, bounded
+      evidence, host checkout, session-runs record); negative paths for
+      missing parent credentials, missing CLI, unauthenticated worker,
+      cancellation, and timeout kept generic and fail-closed; manual
+      evidence and go/no-go record. Automated tests stay fake/offline and
+      credentialed runs stay out of CI.
+    acceptance_criteria:
+      - Documented manual run completes a real provider-backed
+        read-capable delegation against a throwaway checkout
+      - No API key, login URL/device code, account identity, raw provider
+        output, prompt, or transcript appears in history, tool results,
+        session-runs, traces, or repository files
+      - Run proves provider authentication and delegation use the same
+        configured worker binary
+      - Failure at either auth boundary identifies the boundary without
+        sensitive detail and leaves ARC Pi as the daily harness
+      - Automated tests remain offline; manual-only credentialed test is
+        clearly marked and excluded from CI
+    dependencies:
+      - "1.1"
+      - "2.1"
+      - "2.2"
+      - "2.3"
+    preserved_behavior: ARC Pi remains the default daily harness until the
+      real provider-backed test passes; arc-orchestrator and
+      runner-routing-v4 remain unchanged as the worker plane.
+    checkpoint:
+      state: completed
+      updated_at: 2026-09-14T17:21:00.000Z
+      evidence_ref: https://github.com/andysolomon/arc-eve/issues/13
+      notes: "Shipped: scripts/e2e-acceptance.ts as the host-only CLI with
+        --check/--run and --mode=fake|real; --mode=real requires --confirm-
+        real and is rejected in CI even with ARC_E2E_FORCE=1; fake mode
+        copies the repo into a throwaway temp checkout, runs an Explore-
+        scoped arc_delegate against a fake runner, captures the registry
+        record, and writes bounded redacted evidence. docs/architecture/
+        e2e-acceptance.md covers operator prerequisites, env-var
+        conventions, redaction list (API key, device URL, account
+        identifier, prompt, transcript, session-runs), pass/fail checks,
+        and an explicit CI exclusion note. test/e2e-acceptance.test.ts (6
+        tests) covers arg surface, four-state --check, bounded fake run
+        evidence, full redaction across 4 sensitive markers, CI exclusion
+        even under ARC_E2E_FORCE=1, and same-workflow-binary alignment
+        with provider-auth for the same env. test/arc-delegate-approval
+        test.ts gained one additive assertion proving Explore against the
+        harness fake checkout deep-equals compactResult. README.md
+        references the new doc. pnpm typecheck clean; full suite 66
+        tests green across 9 files. Real-mode manual run remains
+        operator-initiated per the runbook; ARC Pi is the daily harness."
+      evidence_ref: https://github.com/andysolomon/arc-eve/issues/13

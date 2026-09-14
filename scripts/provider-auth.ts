@@ -3,20 +3,31 @@ import { resolve } from "node:path";
 import { providerLogin, providerStatus, type AuthAction, type ProviderStatus } from "../agent/lib/arc-auth.js";
 import type { WorkerKind } from "../agent/lib/worker-binaries.js";
 
+export type ProviderAuthKind = WorkerKind | "both";
+
 export interface ProviderAuthArgs {
   action: AuthAction;
-  kind: WorkerKind;
+  kind: ProviderAuthKind;
 }
 
 const actions = new Set<AuthAction>(["status", "login"]);
-const workers = new Set<WorkerKind>(["cursor-agent", "claude-code"]);
+const kinds = new Set<ProviderAuthKind>(["cursor-agent", "claude-code", "both"]);
+const bothKinds: readonly WorkerKind[] = ["cursor-agent", "claude-code"];
 
 /** Parse exactly the two positional arguments accepted by this operator CLI. */
 export function parseArgs(args: readonly string[]): ProviderAuthArgs | undefined {
   if (args.length !== 2) return undefined;
   const [action, kind] = args;
-  if (!actions.has(action as AuthAction) || !workers.has(kind as WorkerKind)) return undefined;
-  return { action: action as AuthAction, kind: kind as WorkerKind };
+  if (!actions.has(action as AuthAction) || !kinds.has(kind as ProviderAuthKind)) return undefined;
+  return { action: action as AuthAction, kind: kind as ProviderAuthKind };
+}
+
+function kindsFor(kind: ProviderAuthKind): readonly WorkerKind[] {
+  return kind === "both" ? bothKinds : [kind];
+}
+
+function project(kind: WorkerKind, status: ProviderStatus | "completed" | "blocked") {
+  return { provider: kind, status };
 }
 
 type Output = (text: string) => void;
@@ -41,17 +52,26 @@ export async function runCli(
     return 2;
   }
 
-  try {
-    const status: ProviderStatus | "completed" | "blocked" = parsed.action === "status"
-      ? await (options.status ?? providerStatus)(parsed.kind)
-      : (await (options.login ?? providerLogin)(parsed.kind)).status;
-    stdout(`${JSON.stringify({ provider: parsed.kind, status })}\n`);
-    return 0;
-  } catch {
-    // Do not expose provider errors, output, paths, or credentials.
+  const rows: Array<ReturnType<typeof project>> = [];
+  let failed = false;
+  for (const kind of kindsFor(parsed.kind)) {
+    try {
+      const status: ProviderStatus | "completed" | "blocked" = parsed.action === "status"
+        ? await (options.status ?? providerStatus)(kind)
+        : (await (options.login ?? providerLogin)(kind)).status;
+      rows.push(project(kind, status));
+    } catch {
+      // Do not expose provider errors, output, paths, or credentials.
+      failed = true;
+    }
+  }
+
+  for (const row of rows) stdout(`${JSON.stringify(row)}\n`);
+  if (failed) {
     stderr("provider-auth: operation failed\n");
     return 1;
   }
+  return 0;
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
