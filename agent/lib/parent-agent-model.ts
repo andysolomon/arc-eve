@@ -1,9 +1,20 @@
 import type { ResolvedParentProvider } from "./parent-provider.js";
 
-/** OpenAI-compatible provider factory accepted by Eve's LanguageModel slot. */
+/**
+ * OpenAI-compatible provider factory accepted by Eve's LanguageModel slot.
+ * Most OpenAI-compat endpoints (MiniMax, OpenRouter-style, vLLM, ...) expose
+ * chat completions at /v1/chat/completions; the AI SDK's `chat(modelId)`
+ * factory method targets that endpoint while the default `(modelId)` call
+ * targets the Responses API at /v1/responses. We always prefer `.chat()`
+ * for direct routing because every OpenAI-compatible provider we expect to
+ * consume starts here (MiniMax, OpenRouter, Together, etc.) exposes it.
+ */
 export type OpenAICompatibleFactory<TModel = unknown> = (
   options: { baseURL?: string; apiKey?: string },
-) => (modelId: string) => TModel;
+) => {
+  (modelId: string): TModel;
+  chat(modelId: string): TModel;
+};
 
 export type ParentAgentDefine<TModel, TResult> = (
   definition: { model: string | TModel },
@@ -17,7 +28,8 @@ function bareModelName(resolved: ResolvedParentProvider): string {
 
 /**
  * Gateway string model when no base URL is set; otherwise a direct
- * OpenAI-compatible LanguageModel from the injected factory.
+ * OpenAI-compatible LanguageModel via the injected factory's `.chat()`
+ * factory method (chat-completions endpoint).
  */
 export function parentAgentModel<TModel>(
   resolved: ResolvedParentProvider,
@@ -28,7 +40,7 @@ export function parentAgentModel<TModel>(
   return createOpenAI({
     baseURL: resolved.baseUrl,
     apiKey: env.EVE_PARENT_API_KEY ?? "",
-  })(bareModelName(resolved));
+  }).chat(bareModelName(resolved));
 }
 
 /** Thin defineAgent wrapper so tests can inject the factory without loading eve. */

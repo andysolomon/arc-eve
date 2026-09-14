@@ -36,9 +36,15 @@ test("defineAgent receives the resolved string model when no baseUrl is configur
   const resolved = resolveParentProvider({ cwd: isolatedCwd, env: {} });
   const defineCalls: Array<{ model: unknown }> = [];
   const factoryCalls: unknown[] = [];
+  const chatCalls: string[] = [];
   const createOpenAI: OpenAICompatibleFactory = (options) => {
     factoryCalls.push(options);
-    return () => ({ specificationVersion: "v3", provider: "openai", modelId: "unused" });
+    const provider = ((modelId: string) => ({ specificationVersion: "v3", provider: "openai", modelId })) as ReturnType<OpenAICompatibleFactory> & { chat: (id: string) => unknown };
+    provider.chat = (modelId: string) => {
+      chatCalls.push(modelId);
+      return { specificationVersion: "v3", provider: "openai.chat", modelId };
+    };
+    return provider;
   };
 
   defineParentAgent((definition) => {
@@ -52,10 +58,11 @@ test("defineAgent receives the resolved string model when no baseUrl is configur
   assert.equal(defineCalls[0].model, resolved.model);
   assert.equal(defineCalls[0].model, "openai/gpt-5-mini");
   assert.deepEqual(factoryCalls, []);
-  assertNoCredentialEcho({ defineCalls, factoryCalls, resolved });
+  assert.deepEqual(chatCalls, []);
+  assertNoCredentialEcho({ defineCalls, factoryCalls, chatCalls, resolved });
 });
 
-test("defineAgent receives the createOpenAI language-model object when baseUrl is set", () => {
+test("defineAgent receives the createOpenAI language-model object via .chat() when baseUrl is set", () => {
   const env = {
     EVE_PARENT_PROVIDER: "MiniMax",
     EVE_PARENT_MODEL: "MiniMax/MiniMax-M3",
@@ -65,15 +72,17 @@ test("defineAgent receives the createOpenAI language-model object when baseUrl i
   const resolved = resolveParentProvider({ cwd: isolatedCwd, env });
   const languageModel = {
     specificationVersion: "v3",
-    provider: "openai.compatible",
+    provider: "openai.compatible.chat",
     modelId: "MiniMax-M3",
   };
   const factoryMeta: Array<{ baseURL?: string; calledWithBareModel: string }> = [];
   const createOpenAI: OpenAICompatibleFactory = (options) => {
-    return (modelId) => {
+    const provider = ((modelId: string) => ({ specificationVersion: "v3", provider: "openai.compatible", modelId })) as ReturnType<OpenAICompatibleFactory> & { chat: (id: string) => unknown };
+    provider.chat = (modelId: string) => {
       factoryMeta.push({ baseURL: options.baseURL, calledWithBareModel: modelId });
       return languageModel;
     };
+    return provider;
   };
   const defineCalls: Array<{ model: unknown }> = [];
 
