@@ -15,6 +15,12 @@ export interface ResolvedParentProvider {
   provider: string;
   /** Provider-qualified model string accepted by Eve's string-model config. */
   model: string;
+  /**
+   * Bare model id after the first slash when the configured model was already
+   * provider-qualified (e.g. MiniMax/MiniMax-M3 → MiniMax-M3). Absent when the
+   * qualifier is added from the provider setting.
+   */
+  modelShortName?: string;
   baseUrl?: string;
   /** Only presence is exposed; credential material is never returned. */
   credentialPresent: boolean;
@@ -144,6 +150,11 @@ function providerQualifiedModel(provider: string, model: string): string {
   return model.includes("/") ? model : `${provider}/${model}`;
 }
 
+function qualifiedModelShortName(model: string): string | undefined {
+  const separator = model.indexOf("/");
+  return separator >= 0 ? model.slice(separator + 1) : undefined;
+}
+
 export function resolveParentProvider(options?: ParentProviderResolveOptions): ResolvedParentProvider;
 export function resolveParentProvider(env?: NodeJS.ProcessEnv, cwd?: string): ResolvedParentProvider;
 export function resolveParentProvider(
@@ -163,10 +174,12 @@ export function resolveParentProvider(
   const modelId = selectSetting("model", env, fileValues) ?? DEFAULT_PARENT_MODEL;
   const baseUrl = selectSetting("baseUrl", env, fileValues);
   const credential = selectSetting("apiKey", env, fileValues);
+  const modelShortName = modelId.includes("/") ? qualifiedModelShortName(modelId) : undefined;
 
   return {
     provider,
     model: providerQualifiedModel(provider, modelId),
+    ...(modelShortName ? { modelShortName } : {}),
     ...(baseUrl ? { baseUrl } : {}),
     credentialPresent: credential !== undefined,
   };

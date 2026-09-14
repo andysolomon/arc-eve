@@ -6,6 +6,7 @@ Legend: [ ] planned  [>] ready  [x] completed  [!] blocked  [-] cancelled  [?] n
 
 [ ] 1.0 - Parent provider foundation (planned)
     [x] 1.1 - #9 Configure and authenticate the Eve parent provider (completed) [evidence: https://github.com/andysolomon/arc-eve/issues/9]
+    [x] 1.2 - Direct parent-provider routing when EVE_PARENT_BASE_URL is set (completed) [evidence: https://github.com/andysolomon/arc-eve/issues/9]
 [ ] 2.0 - Worker identity and operator auth surface (planned)
     [x] 2.1 - #12 Share ARC Pi worker binary resolution with ARC runner (completed) [evidence: https://github.com/andysolomon/arc-eve/issues/12]
     [x] 2.2 - #10 Provide an operator-only worker login/status surface in Eve (completed) [evidence: https://github.com/andysolomon/arc-eve/issues/10]
