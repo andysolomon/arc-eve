@@ -9,6 +9,9 @@
     "info": "eve info",
     "build": "eve build",
     "provider-auth": "tsx scripts/provider-auth.ts",
+    "parent-provider": "node --import tsx scripts/parent-provider.ts",
+    "e2e-acceptance": "node --import tsx scripts/e2e-acceptance.ts",
+    "test:e2e:fake": "node --test --import tsx test/e2e-acceptance.test.ts",
     "test": "node --test --import tsx test/**/*.test.ts"
   },
   "dependencies": { "eve": "0.54.3", "zod": "^4.0.0" },

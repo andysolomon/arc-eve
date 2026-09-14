@@ -1,5 +1,8 @@
 import { defineAgent } from "eve";
+import { resolveParentProvider } from "./lib/parent-provider.js";
+
+const parentProvider = resolveParentProvider();
 
 export default defineAgent({
-  model: "openai/gpt-5-mini",
+  model: parentProvider.model,
 });

@@ -77,14 +77,14 @@ operator adapter.
 
 Eve 0.54.3 has no supported operator-only authored-tool visibility boundary.
 Therefore `/arc-login` and `/arc-auth-status` are not registered model tools.
-Operators may instead use the host-only command
-`pnpm provider-auth -- status cursor-agent|claude-code` or
-`pnpm provider-auth -- login cursor-agent|claude-code`. Binary identity comes
-from the canonical ARC Pi variables `ARC_ORCHESTRATOR_CURSOR_BIN` and
-`ARC_ORCHESTRATOR_CLAUDE_BIN`; `CURSOR_AGENT_BIN` and `CLAUDE_CODE_BIN` are
-compatibility aliases only, and canonical values take precedence. The command
-prints generic, redacted state. This is not an Eve model surface and does not
-replace vendor-owned authentication.
+The only login/status entry point is the host-only command
+`pnpm provider-auth -- status|login cursor-agent|claude-code|both`. Binary
+identity comes from the canonical ARC Pi variables
+`ARC_ORCHESTRATOR_CURSOR_BIN` and `ARC_ORCHESTRATOR_CLAUDE_BIN`;
+`CURSOR_AGENT_BIN` and `CLAUDE_CODE_BIN` are compatibility aliases only, and
+canonical values take precedence. The command prints generic, redacted state.
+This is not an Eve model surface and does not replace vendor-owned
+authentication.
 
 The ARC Pi surface maps to Eve as follows:
 
@@ -100,6 +100,19 @@ The foreground Eve path is synchronous and has no invented `jobId`; monitoring
 continues through `session-runs`. Eve does not replace `arc-orchestrator` or
 `runner-routing-v4`; it remains the parent/HITL layer around that worker plane.
 See the [runner spike evidence](docs/architecture/runner-spike.md).
+
+Parent provider setup, `.env.local` precedence, and redaction guarantees are
+documented in the [parent-provider architecture note](docs/architecture/parent-provider.md).
+The host-only `pnpm parent-provider -- check` command reports only the selected
+provider/model and whether a credential is present; it is not an Eve tool and
+does not change the existing v1 surface decisions.
+
+The opt-in manual acceptance run — Eve parent authentication through one
+approved, read-only `arc_delegate` Explore against a throwaway checkout — is
+described in the [e2e acceptance architecture note](docs/architecture/e2e-acceptance.md).
+`pnpm e2e-acceptance` is host-only, defaults to an offline fake mode, never runs
+`--mode=real` in CI or `pnpm test`, and does not change ARC Pi's role as the
+daily harness.
 
 ## Hard questions
 
