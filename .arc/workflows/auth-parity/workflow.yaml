@@ -60,6 +60,63 @@ items:
         documented follow-ups: invalid/expired credential detection at the
         gateway boundary (Risk 1), baseUrl not surfaced in CLI (Risk 3),
         and the simple-model-turn criterion deferred to leaf 3.1 (Risk 4)."
+  - id: "1.2"
+    kind: leaf
+    title: Direct parent-provider routing when EVE_PARENT_BASE_URL is set
+    parent_id: "1.0"
+    nesting_depth: 1
+    outcome: When EVE_PARENT_BASE_URL is set, Eve routes the parent-provider
+      model directly to the OpenAI-compatible endpoint using a direct
+      createOpenAI provider with the resolved base URL and key, bypassing
+      Vercel AI Gateway. String-model gateway behavior is unchanged when
+      no base URL is set.
+    scope: Additive modelShortName on ResolvedParentProvider; agent.ts
+      defineAgent uses parentAgentModel so a baseUrl selects
+      createOpenAI({ baseURL, apiKey })(bare model) while an unset baseUrl
+      keeps the qualified string model. Tests cover both shapes and
+      credential non-echo. No new dependency, no model-callable tool,
+      no CLI/docs/1.1 assertion changes.
+    acceptance_criteria:
+      - Unset baseUrl keeps defineAgent on the resolved string model
+      - Set baseUrl passes a createOpenAI language-model object using the
+        bare model name after the first slash
+      - Optional modelShortName is the bare id only for already-qualified
+        models and is omitted otherwise
+      - Tests never echo EVE_PARENT_API_KEY or the probe key value
+      - Existing leaf 1.1 resolver API and CLI JSON shape stay the same
+    dependencies:
+      - "1.1"
+    preserved_behavior: Default openai/gpt-5-mini string-model gateway
+      routing, credential-missing check JSON, and all five shipped
+      auth-parity leaves remain unchanged in core semantics.
+    checkpoint:
+      state: completed
+      updated_at: 2026-09-14T20:24:00.000Z
+      notes: "Shipped: agent/lib/parent-agent-model.ts adds parentAgentModel
+        and defineParentAgent helpers; agent/agent.ts now uses
+        parentAgentModel(parentProvider, createOpenAI) so a set baseUrl
+        selects a direct createOpenAI({baseURL, apiKey:
+        process.env.EVE_PARENT_API_KEY ?? ''})(bare model) and an unset
+        baseUrl keeps the qualified string model. createOpenAI is imported
+        from eve's bundled @ai-sdk/openai (no new dependency in package.json
+        or pnpm-lock.yaml). agent/lib/parent-provider.ts gains an optional
+        modelShortName on ResolvedParentProvider: the bare id when the
+        configured model was already qualified (e.g. 'MiniMax-M3' from
+        'MiniMax/MiniMax-M3'); omitted otherwise. test/agent-direct-routing.test.ts
+        is a new 2-test file that mocks defineAgent and createOpenAI to
+        lock both shapes (string when no baseUrl, language-model object
+        when baseUrl); test/parent-provider.test.ts is the original 11
+        tests plus one additive modelShortName case. Both block key
+        redaction: probe keys (sk-test-probe-...) never appear in any
+        test snapshot, env snapshot, stderr, or stdout. pnpm typecheck
+        clean; full suite 69 tests green across 10 files. Documented
+        operational note: /tmp tmpfs ran into EDQUOT during local
+        verification; routed TMPDIR=/home/.../.eve-test-tmp clears it;
+        the ~2487 /tmp/arc-* dirs from prior test runs can be cleaned
+        up with `rm -rf /tmp/arc-*` later. Caveat surfaced by worker:
+        createOpenAI() defaults to the Responses API; if MiniMax only
+        exposes /v1/chat/completions, the factory call needs to be
+        .chat(bareName) instead - documented in worker next_actions."
   - id: "2.0"
     kind: group
     title: Worker identity and operator auth surface

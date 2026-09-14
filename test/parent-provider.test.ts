@@ -213,3 +213,19 @@ test(".env.local canonical EVE_PARENT_PROVIDER wins over ARC_ORCHESTRATOR_PROVID
   assert.equal(resolved.provider, "canonical-file-provider");
   assert.notEqual(resolved.provider, "alias-file-provider");
 });
+
+test("qualified model exposes modelShortName as the bare id after the first slash", () => {
+  const resolved = resolveParentProvider({
+    env: {
+      EVE_PARENT_PROVIDER: "MiniMax",
+      EVE_PARENT_MODEL: "MiniMax/MiniMax-M3",
+    },
+    cwd: "/path/that/does/not/exist",
+  });
+  assert.equal(resolved.model, "MiniMax/MiniMax-M3");
+  assert.equal(resolved.modelShortName, "MiniMax-M3");
+  assert.equal("modelShortName" in resolveParentProvider({
+    env: { EVE_PARENT_PROVIDER: "MiniMax", EVE_PARENT_MODEL: "MiniMax-M3" },
+    cwd: "/path/that/does/not/exist",
+  }), false);
+});

@@ -1,6 +1,7 @@
 # Parent provider foundation
 
 - [x] #9 Configure and authenticate the Eve parent provider
+- [x] Direct parent-provider routing when EVE_PARENT_BASE_URL is set
 
 # Worker identity and operator auth surface
 
