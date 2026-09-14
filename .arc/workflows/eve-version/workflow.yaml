@@ -1,0 +1,209 @@
+schema_version: "1"
+slug: eve-version
+repository:
+  id: arc-eve
+  path: .
+items:
+  - id: "1.0"
+    kind: group
+    title: Foundation and runner boundary
+    parent_id: null
+    nesting_depth: 0
+    dependencies: []
+    checkpoint:
+      state: completed
+      updated_at: 2026-09-14T01:54:23.000Z
+  - id: "1.1"
+    kind: leaf
+    title: "#6 Keep runner-routing-v4; do not replace workers with Eve subagents"
+    parent_id: "1.0"
+    nesting_depth: 1
+    outcome: The Eve design explicitly keeps arc-orchestrator and runner-routing-v4
+      as the worker plane, while any later Eve-subagent use requires a
+      separately approved RFC.
+    scope: README.md and future agent/instructions.md; document the worker boundary
+      only. Do not change arc-orchestrator, routing, locks, sandboxes, or worker
+      execution.
+    acceptance_criteria:
+      - README and agent instructions state that arc-orchestrator and
+        runner-routing-v4 remain the worker plane
+      - No issue or PR replaces external workers with Eve subagents without an
+        explicit follow-on RFC
+    dependencies: []
+    preserved_behavior: ARC routing, explicit route aliases, write locking, CLI
+      sandboxes, and vendor-owned authentication remain runner-owned.
+    checkpoint:
+      state: completed
+      updated_at: 2026-09-14T01:54:23.000Z
+      evidence_ref: https://github.com/andysolomon/arc-eve/issues/6
+  - id: "1.2"
+    kind: leaf
+    title: "#1 Spike: invoke arc-orchestrator from an Eve parent on a real checkout"
+    parent_id: "1.0"
+    nesting_depth: 1
+    outcome: An Eve parent can invoke the existing ARC runner against a throwaway
+      real checkout and return compact structured evidence, or a bounded
+      failed-tool result that identifies the workspace limitation.
+    scope: Eve app scaffold/configuration, agent/tools/arc_delegate.ts, runner
+      executable discovery, and one throwaway checkout. Do not port login,
+      approvals, monitoring, or a daily launcher.
+    acceptance_criteria:
+      - eve dev can call arc_delegate and receive compact structured evidence or
+        a failed tool result
+      - "Executable discovery follows ARC Pi: ARC_ORCHESTRATOR_BIN, then PATH,
+        then known layouts"
+      - The issue records whether host-cwd worked, needed hacks, or failed and
+        why
+    dependencies: []
+    preserved_behavior: ARC Pi remains the daily harness; the existing runner
+      contract, routing policy, authentication, and worker boundary are
+      unchanged.
+    checkpoint:
+      state: completed
+      updated_at: 2026-09-14T01:54:23.000Z
+      evidence_ref: https://github.com/andysolomon/arc-eve/issues/1
+  - id: "2.0"
+    kind: group
+    title: Architecture and safety decisions
+    parent_id: null
+    nesting_depth: 0
+    dependencies: []
+    checkpoint:
+      state: completed
+      updated_at: 2026-09-14T01:54:23.000Z
+  - id: "2.1"
+    kind: leaf
+    title: "#2 Decide parent workspace: host checkout vs Eve sandbox"
+    parent_id: "2.0"
+    nesting_depth: 1
+    outcome: The README records one v1 workspace constraint and explicitly rejects
+      the other two options, including the implications for parent-local
+      analysis, artifacts, and git/GitHub actions.
+    scope: README.md and architecture notes; document the workspace decision only.
+      Do not implement a custom sandbox, host tools, or clone/sync workflow in
+      this issue.
+    acceptance_criteria:
+      - One workspace option is written as the v1 constraint in the README
+      - The other two options are explicit v1 non-goals with their reasons
+      - Implications for Analyze, arc_task_artifact, and parent-performed git/gh
+        are listed
+    dependencies:
+      - "1.2"
+    preserved_behavior: The spike preserves ARC Pi checkout behavior and does not
+      broaden Eve into a shipping or multi-repository controller.
+    checkpoint:
+      state: completed
+      updated_at: 2026-09-14T01:54:23.000Z
+      evidence_ref: https://github.com/andysolomon/arc-eve/issues/2
+  - id: "2.2"
+    kind: leaf
+    title: "#3 Port ARC authorization gates to Eve approvals"
+    parent_id: "2.0"
+    nesting_depth: 1
+    outcome: Eve approvals preserve ARC Pi fail-closed gates for analysis,
+      implementation, integration, release, and deployment without allowing the
+      model to authorize its own work.
+    scope: Eve approval policies, agent instructions, and the arc_delegate tool
+      boundary. Do not implement Decision Ledger parity or replace
+      arc_ask_operator outside the Eve port.
+    acceptance_criteria:
+      - Explore, Research, and Plan pause for a person before the runner starts
+      - Implement shows the exact contract and workload class and uses an always
+        gate
+      - Deploy is a separate always-gated path and background Deploy remains
+        rejected
+      - Decline, cancel, and non-interactive calls launch nothing
+    dependencies:
+      - "1.2"
+    preserved_behavior: ARC Pi authorization semantics, approved workload classes,
+      and the external runner contract remain unchanged.
+    checkpoint:
+      state: completed
+      updated_at: 2026-09-14T01:54:23.000Z
+      evidence_ref: https://github.com/andysolomon/arc-eve/issues/3
+  - id: "2.3"
+    kind: leaf
+    title: "#4 Operator-only Provider CLI login and status"
+    parent_id: "2.0"
+    nesting_depth: 1
+    outcome: Operators can authenticate and inspect the configured Cursor Agent and
+      Claude Code workers through redacted, shell-free status and login flows
+      that are never model-callable.
+    scope: Operator-only auth/status surface and the shared worker executable
+      configuration used by arc_delegate. Exclude CLI installation, logout,
+      credential migration, and Eve model connections.
+    acceptance_criteria:
+      - The model cannot call login or status tools
+      - Status exposes only missing, authenticated, unauthenticated, or unknown
+        and no identity data
+      - Login uses the same configured executable path as arc_delegate worker
+        execution
+    dependencies:
+      - "1.2"
+    preserved_behavior: Vendor-owned credentials stay outside session history and
+      runner traces; Cursor Agent and Claude Code remain workers, not Eve
+      models.
+    checkpoint:
+      state: completed
+      updated_at: 2026-09-14T01:54:23.000Z
+      evidence_ref: https://github.com/andysolomon/arc-eve/issues/4
+  - id: "3.0"
+    kind: group
+    title: Operator surface and observability
+    parent_id: null
+    nesting_depth: 0
+    dependencies: []
+    checkpoint:
+      state: completed
+      updated_at: 2026-09-14T01:54:23.000Z
+  - id: "3.1"
+    kind: leaf
+    title: "#5 Choose the operator surface: eve dev TUI, ACP, or HTTP"
+    parent_id: "3.0"
+    nesting_depth: 1
+    outcome: The README names one primary v1 operator surface, maps or defers the
+      relevant ARC Pi commands, and documents ACP filesystem/session limits when
+      it is not primary.
+    scope: README.md and operator-surface design notes. Do not build Slack/Discord
+      channels, a Next.js frontend, or a daily launcher unless explicitly
+      selected as v1 scope.
+    acceptance_criteria:
+      - The v1 primary operator surface and any optional extras are named in the
+        README
+      - ARC Pi slash commands are mapped to Eve tools, a CLI, or explicitly
+        deferred
+      - ACP is either in scope with filesystem limits documented or an explicit
+        non-goal
+    dependencies:
+      - "2.1"
+    preserved_behavior: The chosen surface keeps the operator in a fail-closed HITL
+      loop and does not imply that Eve replaces the external worker plane.
+    checkpoint:
+      state: completed
+      updated_at: 2026-09-14T01:54:23.000Z
+      evidence_ref: https://github.com/andysolomon/arc-eve/issues/5
+  - id: "3.2"
+    kind: leaf
+    title: "#7 Preserve session-runs or replace the monitor event source"
+    parent_id: "3.0"
+    nesting_depth: 1
+    outcome: The monitoring decision preserves the existing session-runs viewer
+      contract or documents the Eve event source and the viewer tabs/events
+      intentionally dropped.
+    scope: arc_delegate run records, Eve event-stream mapping, and README decision
+      notes. Do not port background terminals or in-process Pi subagent
+      dashboards.
+    acceptance_criteria:
+      - One monitoring option is chosen and documented in the README
+      - If session-runs is retained, records include phase, workload class, job
+        id, and bounded live activity without sensitive text
+      - If Eve NDJSON is used, dropped viewer tabs and events are listed
+    dependencies:
+      - "1.2"
+      - "3.1"
+    preserved_behavior: Monitoring remains observational; it cannot authorize work,
+      mutate GitHub, or expand the worker boundary.
+    checkpoint:
+      state: completed
+      updated_at: 2026-09-14T01:54:23.000Z
+      evidence_ref: https://github.com/andysolomon/arc-eve/issues/7
