@@ -24,15 +24,24 @@ export interface ResolvedParentProvider {
   baseUrl?: string;
   /** Only presence is exposed; credential material is never returned. */
   credentialPresent: boolean;
+  /**
+   * Explicit direct-routing context window, in tokens. Only present when the
+   * operator set it; the direct-routing model helper falls back to a
+   * conservative default when a base URL is set and this is absent. Eve
+   * requires this for non-gateway models because it cannot look up context
+   * window metadata for providers outside the AI Gateway catalog.
+   */
+  modelContextWindowTokens?: number;
 }
 
-type ParentSetting = "provider" | "model" | "baseUrl" | "apiKey";
+type ParentSetting = "provider" | "model" | "baseUrl" | "apiKey" | "contextWindowTokens";
 
 const canonicalVariables: Record<ParentSetting, string> = {
   provider: "EVE_PARENT_PROVIDER",
   model: "EVE_PARENT_MODEL",
   baseUrl: "EVE_PARENT_BASE_URL",
   apiKey: "EVE_PARENT_API_KEY",
+  contextWindowTokens: "EVE_PARENT_MODEL_CONTEXT_WINDOW_TOKENS",
 };
 
 // Keep ARC Pi-style names available as compatibility fallbacks. The canonical
@@ -68,6 +77,12 @@ const compatibilityVariables: Record<ParentSetting, readonly string[]> = {
     // This is the credential name consumed by Eve's string-model gateway.
     "AI_GATEWAY_API_KEY",
     "VERCEL_OIDC_TOKEN",
+  ],
+  contextWindowTokens: [
+    "ARC_ORCHESTRATOR_PARENT_CONTEXT_WINDOW_TOKENS",
+    "ARC_PI_MODEL_CONTEXT_WINDOW_TOKENS",
+    "EVE_MODEL_CONTEXT_WINDOW_TOKENS",
+    "PARENT_MODEL_CONTEXT_WINDOW_TOKENS",
   ],
 };
 
@@ -188,6 +203,13 @@ function qualifiedModelShortName(model: string): string | undefined {
   return separator >= 0 ? model.slice(separator + 1) : undefined;
 }
 
+/** Positive safe integer, or undefined for absent/malformed values. */
+function parseContextWindowTokens(value: string | undefined): number | undefined {
+  if (value === undefined || !/^\d+$/.test(value)) return undefined;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : undefined;
+}
+
 export function resolveParentProvider(options?: ParentProviderResolveOptions): ResolvedParentProvider;
 export function resolveParentProvider(env?: NodeJS.ProcessEnv, cwd?: string): ResolvedParentProvider;
 export function resolveParentProvider(
@@ -208,6 +230,9 @@ export function resolveParentProvider(
   const baseUrl = selectSetting("baseUrl", env, fileValues);
   const credential = selectSetting("apiKey", env, fileValues);
   const modelShortName = modelId.includes("/") ? qualifiedModelShortName(modelId) : undefined;
+  const modelContextWindowTokens = parseContextWindowTokens(
+    selectSetting("contextWindowTokens", env, fileValues),
+  );
 
   return {
     provider,
@@ -215,6 +240,7 @@ export function resolveParentProvider(
     ...(modelShortName ? { modelShortName } : {}),
     ...(baseUrl ? { baseUrl } : {}),
     credentialPresent: credential !== undefined,
+    ...(modelContextWindowTokens !== undefined ? { modelContextWindowTokens } : {}),
   };
 }
 

@@ -5,6 +5,7 @@
   "type": "module",
   "engines": { "node": ">=24" },
   "scripts": {
+    "dev": "eve dev",
     "typecheck": "tsc --noEmit",
     "info": "eve info",
     "build": "eve build",
