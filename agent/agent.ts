@@ -1,6 +1,6 @@
 import { createOpenAI } from "../node_modules/eve/dist/src/compiled/@ai-sdk/openai/index.js";
 import { defineAgent } from "eve";
-import { parentAgentModel } from "./lib/parent-agent-model.js";
+import { parentAgentDefinition } from "./lib/parent-agent-model.js";
 import { loadDotEnvIntoProcessEnv, resolveParentProvider } from "./lib/parent-provider.js";
 
 // Bootstrap .env.local into process.env once at module load. Process env
@@ -11,6 +11,7 @@ loadDotEnvIntoProcessEnv();
 
 const parentProvider = resolveParentProvider();
 
-export default defineAgent({
-  model: parentAgentModel(parentProvider, createOpenAI),
-});
+// Direct routing (EVE_PARENT_BASE_URL set) carries an explicit
+// modelContextWindowTokens so eve can compile its compaction trigger without
+// an AI Gateway catalog lookup it cannot satisfy for non-gateway providers.
+export default defineAgent(parentAgentDefinition(parentProvider, createOpenAI));

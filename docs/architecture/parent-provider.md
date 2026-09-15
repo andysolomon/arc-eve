@@ -37,9 +37,27 @@ loading.
 | `EVE_PARENT_BASE_URL` | `ARC_ORCHESTRATOR_PARENT_BASE_URL`, `ARC_ORCHESTRATOR_BASE_URL`, `ARC_PI_BASE_URL`, `EVE_BASE_URL`, `PARENT_BASE_URL` |
 | `EVE_PARENT_API_KEY` | `ARC_ORCHESTRATOR_PARENT_API_KEY`, `ARC_ORCHESTRATOR_API_KEY`, `ARC_PI_API_KEY`, `EVE_API_KEY`, `PARENT_API_KEY`, `AI_GATEWAY_API_KEY`, `VERCEL_OIDC_TOKEN` |
 
-`EVE_PARENT_BASE_URL` is resolved for operator inspection and future direct
-provider configuration, but the current agent passes only the selected model
-string to Eve. No parent credential is imported into ARC worker processes.
+## Direct routing (non-gateway providers)
+
+Leave `EVE_PARENT_BASE_URL` blank for AI Gateway routing: Eve receives the
+qualified string model and resolves its own model metadata.
+
+Set `EVE_PARENT_BASE_URL` to an OpenAI-compatible base URL (for example
+`https://api.minimax.io/v1`) to route the parent model directly, bypassing the
+gateway. Direct routing:
+
+- calls the provider's chat-completions endpoint (`<base>/chat/completions`)
+  with the bare model id after the first slash;
+- sends the credential from `EVE_PARENT_API_KEY`;
+- requires a context window, because Eve compiles its compaction trigger from
+  one and cannot fall back to AI Gateway catalog metadata for a provider the
+  gateway does not list. `EVE_PARENT_MODEL_CONTEXT_WINDOW_TOKENS` overrides
+  the conservative 128000-token default; a malformed value falls back to the
+default rather than failing startup.
+
+No parent credential is imported into ARC worker processes, and `.env.local` is
+bootstrapped into `process.env` at agent module load (real process environment
+always wins).
 
 ## Redaction and operator boundary
 

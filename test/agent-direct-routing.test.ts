@@ -1,7 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  DEFAULT_DIRECT_CONTEXT_WINDOW_TOKENS,
   defineParentAgent,
+  parentAgentDefinition,
   type OpenAICompatibleFactory,
 } from "../agent/lib/parent-agent-model.js";
 import { resolveParentProvider } from "../agent/lib/parent-provider.js";
@@ -34,7 +36,7 @@ function assertNoCredentialEcho(snapshot: unknown): void {
 
 test("defineAgent receives the resolved string model when no baseUrl is configured", () => {
   const resolved = resolveParentProvider({ cwd: isolatedCwd, env: {} });
-  const defineCalls: Array<{ model: unknown }> = [];
+  const defineCalls: Array<{ model: unknown; modelContextWindowTokens?: number }> = [];
   const factoryCalls: unknown[] = [];
   const chatCalls: string[] = [];
   const createOpenAI: OpenAICompatibleFactory = (options) => {
@@ -57,6 +59,9 @@ test("defineAgent receives the resolved string model when no baseUrl is configur
   assert.equal(typeof defineCalls[0].model, "string");
   assert.equal(defineCalls[0].model, resolved.model);
   assert.equal(defineCalls[0].model, "openai/gpt-5-mini");
+  // Gateway routing must not carry an explicit context window: eve resolves
+  // gateway model metadata itself and would reject a spurious override.
+  assert.equal("modelContextWindowTokens" in defineCalls[0], false);
   assert.deepEqual(factoryCalls, []);
   assert.deepEqual(chatCalls, []);
   assertNoCredentialEcho({ defineCalls, factoryCalls, chatCalls, resolved });
@@ -84,7 +89,7 @@ test("defineAgent receives the createOpenAI language-model object via .chat() wh
     };
     return provider;
   };
-  const defineCalls: Array<{ model: unknown }> = [];
+  const defineCalls: Array<{ model: unknown; modelContextWindowTokens?: number }> = [];
 
   defineParentAgent((definition) => {
     defineCalls.push(definition);
@@ -96,6 +101,9 @@ test("defineAgent receives the createOpenAI language-model object via .chat() wh
   assert.equal(defineCalls.length, 1);
   assert.equal(typeof defineCalls[0].model, "object");
   assert.equal(defineCalls[0].model, languageModel);
+  // Direct routing must carry a context window, otherwise eve fails
+  // compaction compilation for a non-gateway provider.
+  assert.equal(defineCalls[0].modelContextWindowTokens, DEFAULT_DIRECT_CONTEXT_WINDOW_TOKENS);
   assert.deepEqual(factoryMeta, [{
     baseURL: "https://api.minimax.io/v1",
     calledWithBareModel: "MiniMax-M3",
@@ -113,3 +121,40 @@ test("defineAgent receives the createOpenAI language-model object via .chat() wh
   assert.equal(JSON.stringify(processSnapshot).includes(probeAssignment), false);
   assert.equal(JSON.stringify(processSnapshot).includes(probeKey), false);
 });
+
+test("explicit EVE_PARENT_MODEL_CONTEXT_WINDOW_TOKENS overrides the direct-routing default", () => {
+  const env = {
+    EVE_PARENT_PROVIDER: "MiniMax",
+    EVE_PARENT_MODEL: "MiniMax/MiniMax-M3",
+    EVE_PARENT_BASE_URL: "https://api.minimax.io/v1",
+    EVE_PARENT_API_KEY: probeKey,
+    EVE_PARENT_MODEL_CONTEXT_WINDOW_TOKENS: "200000",
+  };
+  const resolved = resolveParentProvider({ cwd: isolatedCwd, env });
+  assert.equal(resolved.modelContextWindowTokens, 200000);
+
+  const fragment = parentAgentDefinition(resolved, openAIFactory(), env);
+  assert.equal(fragment.modelContextWindowTokens, 200000);
+
+  const { EVE_PARENT_MODEL_CONTEXT_WINDOW_TOKENS: _dropped, ...withoutOverride } = env;
+  const fallbackResolved = resolveParentProvider({ cwd: isolatedCwd, env: withoutOverride });
+  assert.equal(fallbackResolved.modelContextWindowTokens, undefined);
+  assert.equal(
+    parentAgentDefinition(fallbackResolved, openAIFactory(), withoutOverride).modelContextWindowTokens,
+    DEFAULT_DIRECT_CONTEXT_WINDOW_TOKENS,
+  );
+
+  const malformed = resolveParentProvider({
+    cwd: isolatedCwd,
+    env: { ...env, EVE_PARENT_MODEL_CONTEXT_WINDOW_TOKENS: "not-a-number" },
+  });
+  assert.equal(malformed.modelContextWindowTokens, undefined);
+});
+
+function openAIFactory(): OpenAICompatibleFactory {
+  return (options) => {
+    const provider = ((modelId: string) => ({ specificationVersion: "v3", provider: "openai.compatible", modelId, baseURL: options.baseURL })) as ReturnType<OpenAICompatibleFactory>;
+    provider.chat = (modelId: string) => ({ specificationVersion: "v3", provider: "openai.compatible.chat", modelId, baseURL: options.baseURL });
+    return provider;
+  };
+}
