@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   formatMissingCredentialsMessage,
+  loadDotEnvIntoProcessEnv,
   parseDotEnvLocal,
   redactParentProviderText,
   resolveParentProvider,
