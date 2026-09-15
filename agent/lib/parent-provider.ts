@@ -125,6 +125,39 @@ export function readDotEnvLocal(cwd = process.cwd(), envLocalPath?: string): Rec
   }
 }
 
+/**
+ * Idempotent .env.local bootstrap that only sets process.env values that are
+ * not already present. Process environment always wins; .env.local is the
+ * fallback. Missing/unreadable file is a no-op. Returns a record so callers
+ * (and tests) can introspect what was loaded vs skipped.
+ */
+export function loadDotEnvIntoProcessEnv(
+  cwd = process.cwd(),
+  envLocalPath?: string,
+): { loaded: string[]; skipped: string[]; file: string | undefined } {
+  const file = (() => {
+    try {
+      return envLocalPath
+        ? isAbsolute(envLocalPath) ? envLocalPath : join(cwd, envLocalPath)
+        : join(cwd, ".env.local");
+    } catch {
+      return undefined;
+    }
+  })();
+  const values = readDotEnvLocal(cwd, envLocalPath);
+  const loaded: string[] = [];
+  const skipped: string[] = [];
+  for (const [key, value] of Object.entries(values)) {
+    if (process.env[key] === undefined) {
+      process.env[key] = value;
+      loaded.push(key);
+    } else {
+      skipped.push(key);
+    }
+  }
+  return { loaded, skipped, file };
+}
+
 function isResolveOptions(value: ParentProviderResolveOptions | NodeJS.ProcessEnv): value is ParentProviderResolveOptions {
   return "env" in value || "cwd" in value || "envLocalPath" in value;
 }
