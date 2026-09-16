@@ -51,7 +51,7 @@ parser and never echoes values.
 
 ```sh
 pnpm e2e-acceptance --check                       # fake (default), offline
-pnpm e2e-acceptance --run --mode=fake             # fake end-to-end, offline
+pnpm e2e-acceptance --run --mode=fake             # fake end-to-end, offline (synthetic parent credential unless --env-from-file)
 pnpm e2e-acceptance --check --mode=real --confirm-real --env-from-file=<file>
 pnpm e2e-acceptance --run   --mode=real --confirm-real --env-from-file=<file>
 pnpm e2e-acceptance --run   --mode=real --confirm-real --env-from-file=<file> --checkout=<dir>
