@@ -97,3 +97,33 @@ test("explore against the e2e harness fake checkout returns the bounded redacted
     }
   }
 });
+
+test("a clean runner exit with a blocked worker result is recorded as failed, not completed", async () => {
+  const { mkdtemp, readdir, readFile, writeFile } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const dir = await mkdtemp(join(tmpdir(), "arc-delegate-blocked-"));
+  const runner = join(dir, "fake-runner");
+  const final = { status: "blocked", summary: "verification could not run", changes: [], verification: [], risks: ["out of scope"], next_actions: [] };
+  await writeFile(runner, `#!${process.execPath}\nprocess.stdout.write(${JSON.stringify(JSON.stringify(final) + "\n")});\n`, { mode: 0o755 });
+  const saved = { ARC_PI_HOME: process.env.ARC_PI_HOME, ARC_ORCHESTRATOR_BIN: process.env.ARC_ORCHESTRATOR_BIN };
+  process.env.ARC_PI_HOME = join(dir, ".arc-pi");
+  process.env.ARC_ORCHESTRATOR_BIN = runner;
+  try {
+    const result: any = await (tool as any).execute({ ...base, phase: "explore", cwd: dir }, {
+      abortSignal: new AbortController().signal,
+      session: { id: "eve-session" },
+    });
+    assert.equal(result.status, "blocked");
+    const runs = join(dir, ".arc-pi", "session-runs", "eve-session");
+    const [file] = await readdir(runs);
+    const record = JSON.parse(await readFile(join(runs, file), "utf8"));
+    assert.equal(record.status, "failed");
+    assert.equal(record.exitCode, 0);
+  } finally {
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
