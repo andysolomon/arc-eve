@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "dev": "eve dev",
     "typecheck": "tsc --noEmit",
@@ -15,6 +17,14 @@
     "test:e2e:fake": "node --test --import tsx test/e2e-acceptance.test.ts",
     "test": "node --test --import tsx test/**/*.test.ts"
   },
-  "dependencies": { "eve": "0.54.3", "zod": "^4.0.0" },
-  "devDependencies": { "@types/node": "^24.0.0", "tsx": "^4.19.0", "typescript": "^5.9.0" }
+  "dependencies": {
+    "eve": "0.54.3",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "just-bash": "^3.4.2",
+    "tsx": "^4.19.0",
+    "typescript": "^5.9.0"
+  }
 }
