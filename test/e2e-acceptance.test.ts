@@ -100,6 +100,18 @@ test("--check reports four-state worker presence and redacted parent credential 
   assert.equal(report.workers[1].status, "missing");
 });
 
+test("--run --mode=fake passes offline without --env-from-file using a synthetic parent credential", async () => {
+  const out = await mkdtemp(join(tmpdir(), "arc-e2e-out-"));
+  const run = capture();
+  const code = await runCli(["--run", "--mode=fake", `--out=${out}`], { ...run.options, sourceDir: await fixtureSource() });
+  const text = await readFile(join(out, EVIDENCE_FILE), "utf8");
+  const evidence = JSON.parse(text);
+  assert.equal(code, 0, run.stderr.join(""));
+  assert.equal(evidence.verdict, "pass");
+  assert.equal(evidence.checks.parentCredentialConfigured, true);
+  assert.equal(text.includes("fake-e2e-parent-credential-"), false);
+});
+
 test("--run --mode=fake writes bounded evidence with aliases, presence, exit code, and captured path", async () => {
   const { code, run, out, text, evidence } = await fakeRun();
   assert.equal(code, 0, run.stderr.join(""));

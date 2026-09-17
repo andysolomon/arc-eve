@@ -509,7 +509,11 @@ export async function runCli(argv: readonly string[], options: HarnessOptions = 
     }
 
     if (args.mode === "fake") {
-      const { evidence, evidencePath } = await fakeRun(args, fileValues, options, automated);
+      // Fake mode is hermetic and never reads host credentials, so the documented
+      // offline command seeds a synthetic parent credential when no file is given.
+      // It is added to fileValues, so the redaction scan still proves it never leaks.
+      const runValues = args.envFromFile ? fileValues : { AI_GATEWAY_API_KEY: `fake-e2e-parent-credential-${randomUUID()}` };
+      const { evidence, evidencePath } = await fakeRun(args, runValues, options, automated);
       stdout(`${JSON.stringify({ ...evidence, evidencePath })}\n`);
       return evidence.verdict === "pass" ? 0 : 1;
     }

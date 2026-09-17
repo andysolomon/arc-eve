@@ -10,6 +10,21 @@ const FULL_URL = `https://authenticator.cursor.sh/login?code=device-secret&token
 const REDACTED_URL = "https://authenticator.cursor.sh";
 const RAW = "RAW_OUTPUT_SECRET";
 
+// Fake providers are node scripts; interpreter startup alone can exceed 100ms,
+// so signal tests must not race the fake before it has installed its handlers.
+async function waitForFile(path: string, timeoutMs = 5_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    try {
+      await readFile(path);
+      return;
+    } catch {
+      if (Date.now() > deadline) throw new Error(`fake provider did not start: ${path}`);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+  }
+}
+
 async function tempDir(): Promise<string> {
   return mkdtemp(join(tmpdir(), "arc-auth-lifecycle-"));
 }
@@ -130,7 +145,8 @@ test("SIGTERM then SIGKILL terminates a stalled login within the configured boun
     `setInterval(()=>{},1000);`,
   ].join("\n"));
   const env = envFor(dir, fake, { PID_FILE: pidFile, TERM_FILE: termFile });
-  const timing = { timeoutMs: 200, killGraceMs: 40 };
+  // Deadline must comfortably exceed fake startup so SIGTERM reaches its handler.
+  const timing = { timeoutMs: 1_000, killGraceMs: 40 };
   const started = Date.now();
   const result = await providerLogin("cursor-agent", env, dir, timing);
   const elapsed = Date.now() - started;
@@ -312,7 +328,7 @@ test("cancellation returns unknown without raw output", async () => {
       killGraceMs: 40,
       signal: controller.signal,
     });
-    await new Promise((resolve) => setTimeout(resolve, 80));
+    await waitForFile(pidFile);
     controller.abort();
     const result = await pending;
     assert.deepEqual(result, { status: "blocked", postLoginStatus: "unknown" });

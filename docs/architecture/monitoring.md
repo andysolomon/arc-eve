@@ -10,6 +10,9 @@ Records contain the required reader fields (`route`, `backend`, and nullable
 `model` included), are written with a temporary file and rename, and use mode
 0600. Updates are serialized per run and merge the on-disk record. Once a run
 is terminal, late heartbeats and duplicate end updates cannot rewrite it.
+The contract has no `blocked` status, so a runner that exits 0 but returns a
+`blocked` or malformed worker result is recorded as `failed` with `exitCode: 0`;
+monitors never show a blocked worker as `completed`.
 
 `liveActivity` is a bounded v1 snapshot: phase history is capped at 6,
 activities at 5, files at 20, and accepted events at 200. Only the structured
