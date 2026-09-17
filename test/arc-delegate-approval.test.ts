@@ -115,6 +115,8 @@ test("a clean runner exit with a blocked worker result is recorded as failed, no
       session: { id: "eve-session" },
     });
     assert.equal(result.status, "blocked");
+    // Only the registry status changes; the returned result stays the worker's own.
+    assert.deepEqual(result.risks, ["out of scope"]);
     const runs = join(dir, ".arc-pi", "session-runs", "eve-session");
     const [file] = await readdir(runs);
     const record = JSON.parse(await readFile(join(runs, file), "utf8"));
