@@ -1,4 +1,6 @@
+import type { AgentModelOptionsDefinition } from "eve";
 import type { ResolvedParentProvider } from "./parent-provider.js";
+import { resolveHarnessFlags, type HarnessFlags } from "./harness-flags.js";
 
 /**
  * OpenAI-compatible provider factory accepted by Eve's LanguageModel slot.
@@ -17,7 +19,7 @@ export type OpenAICompatibleFactory<TModel = unknown> = (
 };
 
 export type ParentAgentDefine<TModel, TResult> = (
-  definition: { model: string | TModel; modelContextWindowTokens?: number },
+  definition: ParentAgentDefinitionFragment<TModel>,
 ) => TResult;
 
 /**
@@ -34,10 +36,43 @@ export type ParentAgentDefine<TModel, TResult> = (
  */
 export const DEFAULT_DIRECT_CONTEXT_WINDOW_TOKENS = 128_000;
 
-/** Shape passed to `defineAgent` — a model plus its optional context window. */
+/** Shape passed to `defineAgent` — a model plus its optional context window and provider options. */
 export interface ParentAgentDefinitionFragment<TModel> {
   model: string | TModel;
   modelContextWindowTokens?: number;
+  modelOptions?: AgentModelOptionsDefinition;
+}
+
+/** Stable routing key for OpenAI prompt caching; the prefix it labels is the parent's static system prompt and tool block. */
+export const PARENT_PROMPT_CACHE_KEY = "arc-eve-parent";
+
+/** Only the real OpenAI endpoint accepts the prompt_cache_* request fields. */
+export function isOpenAIEndpoint(resolved: Pick<ResolvedParentProvider, "provider" | "baseUrl">): boolean {
+  if (resolved.provider.toLowerCase() !== "openai") return false;
+  if (!resolved.baseUrl) return true;
+  try {
+    return new URL(resolved.baseUrl).hostname === "api.openai.com";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * OpenAI prompt-cache options for the parent model call. eve adds nothing
+ * for a direct OpenAI model, and for gateway models only a generic caching
+ * hint, so the routing key (and the opt-in 24h retention) are supplied here.
+ * Nothing is added for other providers because unknown request fields can
+ * be rejected by strict OpenAI-compatible servers.
+ */
+export function parentModelOptions(
+  resolved: Pick<ResolvedParentProvider, "provider" | "baseUrl">,
+  flags: Pick<HarnessFlags, "promptCacheKey" | "promptCacheRetention">,
+): AgentModelOptionsDefinition | undefined {
+  if (!isOpenAIEndpoint(resolved)) return undefined;
+  const openai: Record<string, string> = {};
+  if (flags.promptCacheKey) openai.promptCacheKey = PARENT_PROMPT_CACHE_KEY;
+  if (flags.promptCacheRetention) openai.promptCacheRetention = flags.promptCacheRetention;
+  return Object.keys(openai).length ? { providerOptions: { openai } } : undefined;
 }
 
 function bareModelName(resolved: ResolvedParentProvider): string {
@@ -73,12 +108,16 @@ export function parentAgentDefinition<TModel>(
   resolved: ResolvedParentProvider,
   createOpenAI: OpenAICompatibleFactory<TModel>,
   env: NodeJS.ProcessEnv = process.env,
+  flags: Pick<HarnessFlags, "promptCacheKey" | "promptCacheRetention"> = resolveHarnessFlags(env),
 ): ParentAgentDefinitionFragment<TModel> {
   const model = parentAgentModel(resolved, createOpenAI, env);
-  if (!resolved.baseUrl) return { model };
+  const modelOptions = parentModelOptions(resolved, flags);
+  const options = modelOptions ? { modelOptions } : {};
+  if (!resolved.baseUrl) return { model, ...options };
   return {
     model,
     modelContextWindowTokens: resolved.modelContextWindowTokens ?? DEFAULT_DIRECT_CONTEXT_WINDOW_TOKENS,
+    ...options,
   };
 }
 
@@ -88,6 +127,7 @@ export function defineParentAgent<TModel, TResult>(
   resolved: ResolvedParentProvider,
   createOpenAI: OpenAICompatibleFactory<TModel>,
   env: NodeJS.ProcessEnv = process.env,
+  flags?: Pick<HarnessFlags, "promptCacheKey" | "promptCacheRetention">,
 ): TResult {
-  return defineAgent(parentAgentDefinition(resolved, createOpenAI, env));
+  return defineAgent(parentAgentDefinition(resolved, createOpenAI, env, flags));
 }
