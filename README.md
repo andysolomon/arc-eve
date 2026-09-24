@@ -44,7 +44,7 @@ as a drop-in for `bin/arc-pi`.
 | External `arc-orchestrator` and `runner-routing-v4` | Parent loop, instructions, tools |
 | Bounded contract, phases, workload classes | Explore/Plan/Implement/Deploy gates as Eve `approval` |
 | Vendor-owned Cursor / Claude Code login | Operator-only login/status tools (not model-owned) |
-| Policy source in the runner / ARC Pi docs | `agent/instructions.md` + `agent/tools/arc_delegate.ts` |
+| Policy source in the runner / ARC Pi docs | `agent/instructions.ts` (text in `agent/lib/parent-instructions.ts`) + `agent/tools/arc_delegate.ts` |
 
 Do not reimplement routing, write locking, CLI sandboxes, or the 84 explicit
 route aliases inside Eve. Authored Eve tools run in the app runtime and can
@@ -107,6 +107,11 @@ The host-only `pnpm parent-provider -- check` command reports only the selected
 provider/model and whether a credential is present; it is not an Eve tool and
 does not change the existing v1 surface decisions.
 
+Token cost per operator task is measured with `pnpm token-report`, which
+reads eve's local traces; the harness map, baseline, and the optional
+`EVE_PARENT_LEAN_*` flags are described in the
+[token-efficiency architecture note](docs/architecture/token-efficiency.md).
+
 The opt-in manual acceptance run — Eve parent authentication through one
 approved, read-only `arc_delegate` Explore against a throwaway checkout — is
 described in the [e2e acceptance architecture note](docs/architecture/e2e-acceptance.md).
@@ -141,7 +146,7 @@ operator
    |
    v
 eve parent (this repo, not yet built)
-   |-- agent/instructions.md
+   |-- agent/instructions.ts
    |-- agent/tools/arc_delegate.ts
    |-- approval / ask_question gates
    v
