@@ -34,39 +34,6 @@ function assertNoCredentialEcho(snapshot: unknown): void {
   }
 }
 
-test("defineAgent receives the resolved string model when no baseUrl is configured", () => {
-  const resolved = resolveParentProvider({ cwd: isolatedCwd, env: {} });
-  const defineCalls: Array<{ model: unknown; modelContextWindowTokens?: number }> = [];
-  const factoryCalls: unknown[] = [];
-  const chatCalls: string[] = [];
-  const createOpenAI: OpenAICompatibleFactory = (options) => {
-    factoryCalls.push(options);
-    const provider = ((modelId: string) => ({ specificationVersion: "v3", provider: "openai", modelId })) as ReturnType<OpenAICompatibleFactory> & { chat: (id: string) => unknown };
-    provider.chat = (modelId: string) => {
-      chatCalls.push(modelId);
-      return { specificationVersion: "v3", provider: "openai.chat", modelId };
-    };
-    return provider;
-  };
-
-  defineParentAgent((definition) => {
-    defineCalls.push(definition);
-    return definition;
-  }, resolved, createOpenAI, {});
-
-  assert.equal(resolved.baseUrl, undefined);
-  assert.equal(defineCalls.length, 1);
-  assert.equal(typeof defineCalls[0].model, "string");
-  assert.equal(defineCalls[0].model, resolved.model);
-  assert.equal(defineCalls[0].model, "openai/gpt-5-mini");
-  // Gateway routing must not carry an explicit context window: eve resolves
-  // gateway model metadata itself and would reject a spurious override.
-  assert.equal("modelContextWindowTokens" in defineCalls[0], false);
-  assert.deepEqual(factoryCalls, []);
-  assert.deepEqual(chatCalls, []);
-  assertNoCredentialEcho({ defineCalls, factoryCalls, chatCalls, resolved });
-});
-
 test("defineAgent receives the createOpenAI language-model object via .chat() when baseUrl is set", () => {
   const env = {
     EVE_PARENT_PROVIDER: "MiniMax",

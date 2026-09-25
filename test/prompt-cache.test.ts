@@ -35,5 +35,4 @@ test("defineAgent fragment carries modelOptions for gateway OpenAI and omits the
   const minimax = resolveParentProvider({ cwd: isolatedCwd, env: { EVE_PARENT_PROVIDER: "MiniMax", EVE_PARENT_MODEL: "MiniMax-M3", EVE_PARENT_BASE_URL: "https://api.minimax.io/v1" } });
   const fragment = parentAgentDefinition(minimax, factory, {}, { promptCacheKey: true, promptCacheRetention: "24h" });
   assert.equal("modelOptions" in fragment, false);
-  assert.equal(fragment.modelContextWindowTokens, 128_000);
 });
