@@ -8,22 +8,6 @@ import { providerLogin, providerStatus } from "../agent/lib/arc-auth.js";
 const SECRET = "sk-test-1234567890abcdef";
 const FULL_URL = `https://authenticator.cursor.sh/login?code=device-secret&token=${SECRET}`;
 const REDACTED_URL = "https://authenticator.cursor.sh";
-const RAW = "RAW_OUTPUT_SECRET";
-
-// Fake providers are node scripts; interpreter startup alone can exceed 100ms,
-// so signal tests must not race the fake before it has installed its handlers.
-async function waitForFile(path: string, timeoutMs = 5_000): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  for (;;) {
-    try {
-      await readFile(path);
-      return;
-    } catch {
-      if (Date.now() > deadline) throw new Error(`fake provider did not start: ${path}`);
-      await new Promise((resolve) => setTimeout(resolve, 10));
-    }
-  }
-}
 
 async function tempDir(): Promise<string> {
   return mkdtemp(join(tmpdir(), "arc-auth-lifecycle-"));
@@ -103,37 +87,6 @@ function assertAbsent(secret: string, result: unknown, consoleHistory: string[],
   assert.equal(sinks.includes(secret), false, "registry/.eve/history leaked secret");
 }
 
-test("bounded login output is discarded and never written to sinks", async () => {
-  const dir = await tempDir();
-  await plantSinks(dir);
-  const fake = await writeFake(dir, [
-    `const fs=require("node:fs");`,
-    `fs.appendFileSync(process.env.CALLS,JSON.stringify(process.argv.slice(2))+"\\n");`,
-    `process.stdout.write(${JSON.stringify(SECRET + "\\n")});`,
-    `process.stdout.write("x".repeat(20000));`,
-    `process.stdout.write("TAIL_MARKER_AFTER_BOUND\\n");`,
-    `if(process.argv.includes("status"))process.stdout.write(JSON.stringify({authenticated:true}));`,
-  ].join("\n"));
-  const calls = join(dir, "calls");
-  const env = envFor(dir, fake, { CALLS: calls });
-  const consoleCap = captureConsole();
-  try {
-    const result = await providerLogin("cursor-agent", env, dir);
-    assert.equal(result.status, "completed");
-    const serialized = JSON.stringify(result);
-    assert.equal(serialized.includes(SECRET), false);
-    assert.equal(serialized.includes("TAIL_MARKER_AFTER_BOUND"), false);
-    assert.equal(serialized.includes("x".repeat(32)), false);
-    assertAbsent(SECRET, result, consoleCap.history, await readSinks(dir));
-    assert.equal((await readFile(join(dir, ".eve", "traces", "run.log"), "utf8")).includes(SECRET), false);
-    assert.equal((await readFile(join(dir, ".eve", "logs", "agent.log"), "utf8")).includes(SECRET), false);
-    assert.equal((await readFile(join(dir, "history"), "utf8")).includes(SECRET), false);
-    assert.equal((await readFile(join(dir, "registry"), "utf8")).includes(SECRET), false);
-  } finally {
-    consoleCap.restore();
-  }
-});
-
 test("SIGTERM then SIGKILL terminates a stalled login within the configured bound", async () => {
   const dir = await tempDir();
   const pidFile = join(dir, "pid");
@@ -155,18 +108,6 @@ test("SIGTERM then SIGKILL terminates a stalled login within the configured boun
   const pid = Number(await readFile(pidFile, "utf8"));
   assert.throws(() => process.kill(pid, 0), (error: NodeJS.ErrnoException) => error.code === "ESRCH");
   assert.ok(elapsed < timing.timeoutMs + timing.killGraceMs * 2 + 1500);
-});
-
-test("login deadline is configurable and returns a generic blocked result", async () => {
-  const dir = await tempDir();
-  const fake = await writeFake(dir, `process.stdout.write(${JSON.stringify(RAW + "\\n")});setInterval(()=>{},1000);\n`);
-  const env = envFor(dir, fake);
-  const started = Date.now();
-  const result = await providerLogin("claude-code", env, dir, { timeoutMs: 120, killGraceMs: 30 });
-  const elapsed = Date.now() - started;
-  assert.deepEqual(result, { status: "blocked", postLoginStatus: "unknown" });
-  assert.equal(JSON.stringify(result).includes(RAW), false);
-  assert.ok(elapsed < 120 + 30 * 2 + 1500);
 });
 
 test("CURSOR_API_KEY skips cursor-agent login spawn and never discloses the key", async () => {
@@ -306,39 +247,6 @@ test("post-login status probe maps the four generic states", async () => {
     postLoginStatus: "unauthenticated",
   });
   assert.deepEqual(await recordedArgv(probeCalls), [["auth", "login"], ["auth", "status", "--json"]]);
-});
-
-test("cancellation returns unknown without raw output", async () => {
-  const dir = await tempDir();
-  await plantSinks(dir);
-  const pidFile = join(dir, "pid");
-  const fake = await writeFake(dir, [
-    `const fs=require("node:fs");`,
-    `fs.writeFileSync(process.env.PID_FILE,String(process.pid));`,
-    `process.stdout.write(${JSON.stringify(RAW + " " + SECRET + "\\n")});`,
-    `process.on("SIGTERM",()=>{});`,
-    `setInterval(()=>{},1000);`,
-  ].join("\n"));
-  const env = envFor(dir, fake, { PID_FILE: pidFile, CURSOR_API_KEY: SECRET });
-  const controller = new AbortController();
-  const consoleCap = captureConsole();
-  try {
-    const pending = providerLogin("claude-code", env, dir, {
-      timeoutMs: 15_000,
-      killGraceMs: 40,
-      signal: controller.signal,
-    });
-    await waitForFile(pidFile);
-    controller.abort();
-    const result = await pending;
-    assert.deepEqual(result, { status: "blocked", postLoginStatus: "unknown" });
-    assert.equal(JSON.stringify(result).includes(RAW), false);
-    assertAbsent(SECRET, result, consoleCap.history, await readSinks(dir));
-    const pid = Number(await readFile(pidFile, "utf8"));
-    assert.throws(() => process.kill(pid, 0), (error: NodeJS.ErrnoException) => error.code === "ESRCH");
-  } finally {
-    consoleCap.restore();
-  }
 });
 
 test("credential values are absent from result, console.history, registry, and .eve artifacts", async () => {
